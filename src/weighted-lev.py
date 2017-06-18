@@ -1,12 +1,25 @@
-import sys
+#!/usr/bin/env python
+# -*- coding: utf-8 -*- 
 
-def readcosts(fn,cost1):
+import sys
+# import collections
+import io
+
+def readtest(fn):
+    # d={} # collections.defaultdict('<missing>')
+    # with io.open(filename,'r',encoding='utf8') as f:
+    #     for l in f:
+    #         [s,t]=l.split()
+    #         d[s]=t
+    # return(d)
+    return([tuple(line.strip().split()) for line in io.open(fn,'r',encoding='utf8')])
+
+def readcosts(fn):
     """
-       reading costs
+       reading costs from fast_align output
     """
-    dlist=open(fn,'r').readlines()
-    cost=cost1
-    for l in dlist:
+    cost={}
+    for l in io.open(fn,'r',encoding='utf8'):
         [s,t,c]=l.split()
         cost[s+t]=1-2.7**float(c)
     return(cost)
@@ -56,25 +69,33 @@ def iterative_levenshtein(s, t,cost):
 
     return(dist[row][col]/max(cols,rows))
 
-def argbest(f,cands,cost):
-    return 
-
+d=readtest(sys.argv[1])
 cost={}
-cost=readcosts(sys.argv[1],cost);
-cost=readcosts(sys.argv[2],cost);
+if len(sys.argv)>2:
+    cost=readcosts(sys.argv[2])
+if len(sys.argv)>3:
+    cost=cost.update(readcosts(sys.argv[3]))
 
-#iterative_levenshtein(u"англійські",u"английские",cost)
+print(iterative_levenshtein(u'англійські',u'английские',cost))
+print(iterative_levenshtein(u'англійські',u'английски',cost))
+print(iterative_levenshtein(u'англійські',u'английском',cost))
 
+count=0.1
+tp=0
 for line in sys.stdin.readlines():
-    cands=line.split()
+    cands=line.replace('"','').split()
     f=cands.pop(0)
     if len(f)>5:
         beste=min(enumerate(cands), key=lambda e: iterative_levenshtein(f,e[1],cost))[1]
-        print(f,beste,iterative_levenshtein(f,beste,cost))
-        # for e in cands:
-        #     print(f,e,iterative_levenshtein(f,e,cost))
-
-    # if len(f)>3:
-    #     [f,e]=line.split()
-    #     print(f,e,iterative_levenshtein(f,e,cost)) 
+        try:
+            reale=d[f]
+            m=int(reale==beste)
+            tp+=m
+            count+=1
+            print(m,f,reale,beste,iterative_levenshtein(f,beste,cost))
+            # for e in cands:
+            #     print(f,reale,e,iterative_levenshtein(f,e,cost))
+        except:
+            print('Unknown ',f)
+#print('%.3f' % float(tp/count), file=sys.stderr)
 

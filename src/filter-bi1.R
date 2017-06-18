@@ -13,6 +13,13 @@ applymodel <- function(vt,v.s,cvsplit.i) {
     return(vt.new);
 }
 
+applymodel.cca <- function(vt,vs) {
+        cca.mat=cancor(vs, vt, xcenter=F, ycenter=F);
+        vs.new=as.matrix(vs) %*% cca.mat$xcoef;
+        vt.new=as.matrix(vt) %*% cca.mat$ycoef;
+        return(list(vs=vs.new,vt=vt.new))
+}
+
 library(darch)
 
 args=commandArgs(trailingOnly=T);
@@ -39,37 +46,40 @@ vsfn=unlist(strsplit(vsf,'-'))[1];
 vtfn=unlist(strsplit(vtf,'-'))[2];
 ls=dim(vs)[2];
 lt=dim(vt)[2];
+lvs=dim(vs)[1];
 
-v.s <- scale(vs, center = TRUE, scale=TRUE)/6+0.5; # to make in the same range as the sigmoid activation function
-lvs=dim(v.s)[1];
-
-cvsplit.i=sample(1:lvs,lvs/2);
-
-p1=applymodel(vt,v.s,cvsplit.i);
-p2=applymodel(vt,v.s,-cvsplit.i);
-
-vt.new=rbind(p1,p2);
-v.s=rbind(v.s[-cvsplit.i,],v.s[cvsplit.i,]);  #to ensure the same order
+vs.new=numeric(0);
+vt.new=numeric(0);
+if (lnum>0) {
+    v.s <- scale(vs, center = TRUE, scale=TRUE)/6+0.5; # to match the range of the sigmoid activation function
+    cvsplit.i=sample(1:lvs,lvs/2);
+    p1=applymodel.mlp(vt,v.s,cvsplit.i);
+    p2=applymodel.mlp(vt,v.s,-cvsplit.i);
+    vt.new=rbind(p1,p2);
+    vs.new=rbind(v.s[-cvsplit.i,],v.s[cvsplit.i,]);  #to ensure the same order
+} else {  #alternative with CCA:
+    cc.out=applymodel.cca(vs,vt);
+    vs.new=cc.out$vs;
+    vt.new=cc.out$vt;
+};
 
 cos=numeric(0);
 for (i in 1: lvs) {
-    cos[i]=cosine(vt.new[i,],v.s[i,])
+    cos[i]=cosine(vt.new[i,],vs.new[i,])
 }
 print(summary(cos));
 
+coslim=quantile(cos, prob = 1-coslim);
+
+coslimlist <- which(cos<coslim)
+print(cbind(rownames(vs[coslimlist,]),rownames(vt[coslimlist,])))
 # now we select symmetrical translations
-if (length(coslimlist <- which(cos<coslim))) {
-    newdic=cbind(rownames(v.s[-coslimlist,]),
+if (length(coslimlist)) {
+    newdic=cbind(rownames(vs.new[-coslimlist,]),
                  rownames(vt.new[-coslimlist,]),
                  cos[-coslimlist]);
     write.table(newdic,file=paste(vsfn,ls,vtfn,lt,coslim,'test.dic',sep='-'))
 }
 
-outf <- paste(vsfn,vtfn,ls,lt,'darch.Rdata',sep='-');
-save(v.s,vtf,mlp.model,file=outf)
 
-## Other mapping methods
-## cca.mat=cancor(vs, vt, xcenter=F, ycenter=F);
-## vs.new=as.matrix(vs) %*% cca.mat$xcoef;
-## vt.new=as.matrix(vt) %*% cca.mat$ycoef;
 
